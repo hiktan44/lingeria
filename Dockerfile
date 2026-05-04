@@ -2,9 +2,12 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Tüm paketleri kur (dev de dahil, build için TypeScript gerekli)
+# Build sırasında NODE_ENV development olmalı ki devDependencies kurulsun
+ENV NODE_ENV=development
+
+# Tüm paketleri kur (devDependencies dahil)
 COPY backend/package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 # Backend kodunu kopyala
 COPY backend/ .
@@ -17,6 +20,7 @@ RUN npm prune --production
 
 EXPOSE 4000
 
+# Runtime için production
 ENV NODE_ENV=production
 ENV PORT=4000
 
