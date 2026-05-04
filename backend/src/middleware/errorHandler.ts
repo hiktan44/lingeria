@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 
 export function errorHandler(fastify: FastifyInstance) {
-  fastify.setErrorHandler(function (error, request, reply) {
+  fastify.setErrorHandler(function (error: any, request, reply) {
     fastify.log.error(error);
 
     if (error.validation) {

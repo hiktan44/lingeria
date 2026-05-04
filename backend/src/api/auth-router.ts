@@ -35,7 +35,7 @@ export default async function authRouterRoutes(server: FastifyInstance) {
       const token = jwt.sign(
         { id: newUser.id, email: newUser.email },
         JWT_SECRET,
-        { expiresIn: JWT_EXPIRES_IN }
+        { expiresIn: JWT_EXPIRES_IN as any }
       );
 
       return reply.code(201).send({
@@ -73,7 +73,7 @@ export default async function authRouterRoutes(server: FastifyInstance) {
       const token = jwt.sign(
         { id: user.id, email: user.email },
         JWT_SECRET,
-        { expiresIn: JWT_EXPIRES_IN }
+        { expiresIn: JWT_EXPIRES_IN as any }
       );
 
       return reply.send({

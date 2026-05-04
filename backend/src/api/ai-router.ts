@@ -154,8 +154,8 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
       if (balance < cost) {
         return reply.code(402).send({ error: 'Yetersiz bakiye', balance, cost });
       }
-    } catch (err) {
-      server.log.error('Balance check error:', err);
+    } catch (err: any) {
+      server.log.error('Balance check error: ' + (err?.message || String(err)));
     }
 
     const currentKey = getKieKey();
@@ -248,8 +248,8 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
           'INSERT INTO generations (user_id, result_url, model, prompt, cost) VALUES ($1, $2, $3, $4, $5)',
           [userId, resultUrl, selectedModel, generatedPrompt, cost]
         );
-      } catch (dbErr) {
-        server.log.error('DB update error:', dbErr);
+      } catch (dbErr: any) {
+        server.log.error('DB update error: ' + (dbErr?.message || String(dbErr)));
       }
 
       return reply.send({ success: true, jobId: taskId, resultUrl, qualityScore: 95, complianceStatus: 'Catalog Ready', cost });

@@ -1,7 +1,7 @@
 import Queue from 'bull';
 import axios from 'axios';
 import dotenv from 'dotenv';
-import { supabase } from '../config/database';
+import { query } from '../config/database';
 dotenv.config();
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -34,13 +34,10 @@ generationQueue.process(async (job) => {
         const result = (dummyResult as any).data;
         
         if (userId) {
-          await supabase.from('generations').insert({
-            user_id: userId,
-            result_url: result.resultUrl,
-            model: modelName,
-            prompt,
-            cost: 0,
-          });
+          await query(
+            'INSERT INTO generations (user_id, result_url, model, prompt, cost) VALUES ($1, $2, $3, $4, $5)',
+            [userId, result.resultUrl, modelName, prompt, 0]
+          );
         }
         
         return { success: true, originalUrl: imageUrl, ...result };
@@ -62,13 +59,10 @@ generationQueue.process(async (job) => {
     const resultUrl = await pollTaskResult(taskId, kieApiKey, kieBaseUrl);
 
     if (userId) {
-      await supabase.from('generations').insert({
-        user_id: userId,
-        result_url: resultUrl,
-        model: modelName,
-        prompt,
-        cost: 10,
-      });
+      await query(
+        'INSERT INTO generations (user_id, result_url, model, prompt, cost) VALUES ($1, $2, $3, $4, $5)',
+        [userId, resultUrl, modelName, prompt, 10]
+      );
     }
 
     return {
