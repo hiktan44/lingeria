@@ -1,27 +1,46 @@
-FROM node:20-alpine
-
+# ---- Stage 1: build backend ----
+FROM node:20-alpine AS backend-builder
 WORKDIR /app
-
-# Build sırasında NODE_ENV development olmalı ki devDependencies kurulsun
-ENV NODE_ENV=development
-
-# Tüm paketleri kur (devDependencies dahil)
 COPY backend/package*.json ./
 RUN npm ci --include=dev
-
-# Backend kodunu kopyala
 COPY backend/ .
-
-# TypeScript build
 RUN npm run build
 
-# Production'a hazırla - dev paketleri sil
-RUN npm prune --production
+# ---- Stage 2: build frontend ----
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ .
+ENV NEXT_PUBLIC_BACKEND_URL=""
+ENV NEXT_PUBLIC_API_URL=""
+RUN npm run build
 
-EXPOSE 4000
+# ---- Stage 3: runtime ----
+FROM node:20-alpine AS runner
+WORKDIR /app
 
-# Runtime için production
+RUN apk add --no-cache bash
+
+# Backend: production deps + built dist
+WORKDIR /app/backend
+COPY backend/package*.json ./
+RUN npm ci --only=production
+COPY --from=backend-builder /app/backend/dist ./dist
+
+# Frontend: standalone output
+WORKDIR /app/frontend
+COPY --from=frontend-builder /app/.next/standalone ./
+COPY --from=frontend-builder /app/.next/static ./.next/static
+COPY --from=frontend-builder /app/public ./public
+
+# Start script
+WORKDIR /app
+COPY start.sh ./
+RUN chmod +x start.sh
+
+EXPOSE 3001
+ENV PORT=3001
 ENV NODE_ENV=production
-ENV PORT=4000
 
-CMD ["npm", "start"]
+CMD ["./start.sh"]
