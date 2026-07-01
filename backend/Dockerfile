@@ -2,13 +2,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY ./backend/package*.json ./
+COPY package*.json ./
 
-RUN npm ci --only=production
+RUN npm ci --include=dev
 
-COPY ./backend .
+COPY . .
 
 RUN npm run build
+
+RUN npm prune --production
 
 EXPOSE 4000
 
