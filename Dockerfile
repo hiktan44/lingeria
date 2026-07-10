@@ -1,6 +1,7 @@
 # ---- Stage 1: build backend ----
 FROM node:20-alpine AS backend-builder
 WORKDIR /app
+ENV NODE_ENV=development
 COPY backend/package*.json ./
 RUN npm ci --include=dev
 COPY backend/ .
@@ -9,8 +10,9 @@ RUN npm run build
 # ---- Stage 2: build frontend ----
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
+ENV NODE_ENV=development
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 COPY frontend/ .
 ENV NEXT_PUBLIC_BACKEND_URL=""
 ENV NEXT_PUBLIC_API_URL=""
