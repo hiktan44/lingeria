@@ -16,6 +16,7 @@ RUN npm ci --include=dev
 COPY frontend/ .
 ENV NEXT_PUBLIC_BACKEND_URL=""
 ENV NEXT_PUBLIC_API_URL=""
+ENV NODE_ENV=production
 RUN npm run build
 
 # ---- Stage 3: runtime ----
