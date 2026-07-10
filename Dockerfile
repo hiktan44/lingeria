@@ -26,7 +26,7 @@ RUN apk add --no-cache bash
 WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci --only=production
-COPY --from=backend-builder /app/backend/dist ./dist
+COPY --from=backend-builder /app/dist ./dist
 
 # Frontend: standalone output
 WORKDIR /app/frontend
