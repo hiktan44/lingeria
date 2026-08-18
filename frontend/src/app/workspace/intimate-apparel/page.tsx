@@ -36,7 +36,7 @@ function ToastContainer({ toasts, onClose }: { toasts: Toast[]; onClose: (id: nu
         >
           <span>{t.type === 'success' ? '✅' : t.type === 'error' ? '❌' : 'ℹ️'}</span>
           <span className="flex-1 max-w-xs">{t.msg}</span>
-          <button onClick={() => onClose(t.id)} className="ml-2 opacity-60 hover:opacity-100 text-lg leading-none">×</button>
+          <button onClick={() => onClose(t.id)} aria-label="Bildirimi kapat" className="ml-2 opacity-60 hover:opacity-100 text-lg leading-none">×</button>
         </div>
       ))}
     </div>
@@ -49,6 +49,7 @@ function Select({ value, onChange, options }: { value: string; onChange: (v: str
   return (
     <div className="relative">
       <select
+        aria-label={`Seçenek, mevcut değer: ${value}`}
         value={value}
         onChange={e => onChange(e.target.value)}
         className="w-full appearance-none bg-[#1a1a2e] border border-[#2a2a4a] text-gray-200 text-sm rounded px-3 py-2 pr-7 focus:outline-none focus:border-purple-500"
@@ -65,6 +66,10 @@ function Select({ value, onChange, options }: { value: string; onChange: (v: str
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={value}
+      aria-label={value ? 'Ayarı kapat' : 'Ayarı aç'}
       onClick={() => onChange(!value)}
       className={`w-9 h-5 rounded-full transition-colors relative ${value ? 'bg-purple-600' : 'bg-gray-700'}`}
     >
@@ -96,7 +101,7 @@ function UploadZone({ label, image, onUpload, inputRef }: {
             </div>
           )
         }
-        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={onUpload} />
+        <input ref={inputRef} type="file" accept="image/*" aria-label={`${label} yükle`} className="hidden" onChange={onUpload} />
       </div>
     </div>
   );
@@ -372,10 +377,10 @@ export default function Workspace() {
       <ToastContainer toasts={toasts} onClose={closeToast} />
       <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} onAuth={handleAuth} />
 
-      <div className="flex h-screen bg-[#0d0d1a] text-gray-200 font-sans overflow-hidden text-sm">
+      <div className="flex min-h-screen flex-col bg-[#0d0d1a] text-gray-200 font-sans overflow-x-hidden text-sm lg:h-screen lg:flex-row lg:overflow-hidden">
 
         {/* ===== SOL PANEL ===== */}
-        <aside className="w-[320px] min-w-[320px] border-r border-[#1e1e3a] flex flex-col overflow-hidden">
+        <aside className="flex w-full min-w-0 flex-col border-b border-[#1e1e3a] lg:w-[320px] lg:min-w-[320px] lg:overflow-hidden lg:border-b-0 lg:border-r">
 
           {/* User bar */}
           <div className="p-3 border-b border-[#1e1e3a] flex items-center justify-between">
@@ -401,7 +406,7 @@ export default function Workspace() {
             <UploadZone label="② Ürün Görseli *"    image={productImage} onUpload={e => handleUpload(e, 'product')} inputRef={productRef} />
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 space-y-4">
+          <div className="p-3 space-y-4 lg:flex-1 lg:overflow-y-auto">
 
             {/* Model Seçimi */}
             <section>
@@ -469,6 +474,8 @@ export default function Workspace() {
                   <div className="flex flex-wrap gap-1">
                     {COLOR_SWATCHES.map(c => (
                       <button key={c} onClick={() => setSelectedColor(c)}
+                        type="button"
+                        aria-label={`Üst parça rengini ${c} yap`}
                         className={`w-5 h-5 rounded-full border-2 transition ${selectedColor === c ? 'border-purple-400 scale-110' : 'border-transparent'}`}
                         style={{ backgroundColor: c }}
                       />
@@ -662,9 +669,9 @@ export default function Workspace() {
         </aside>
 
         {/* ===== SAĞ PANEL ===== */}
-        <main className="flex-1 flex flex-col bg-[#0a0a18] overflow-hidden">
+        <main className="flex min-h-[70vh] flex-1 flex-col bg-[#0a0a18] lg:min-h-0 lg:overflow-hidden">
 
-          <div className="flex items-center gap-1 px-4 pt-3 pb-0 border-b border-[#1e1e3a]">
+          <div className="flex items-center gap-1 overflow-x-auto px-3 pt-3 pb-0 border-b border-[#1e1e3a] sm:px-4">
             {['Üret','Karşılaştırma','Galeri','Arşiv'].map(tab => (
               <button
                 key={tab}
@@ -674,14 +681,14 @@ export default function Workspace() {
                 {tab}
               </button>
             ))}
-            <div className="ml-auto flex items-center gap-2 mb-2">
+            <div className="ml-auto hidden items-center gap-2 mb-2 sm:flex">
               <span className="text-xs text-green-400 bg-green-900/30 px-2 py-1 rounded flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div> Sistem Aktif
               </span>
             </div>
           </div>
 
-          <div className="flex-1 p-6 overflow-auto flex items-start justify-center">
+          <div className="flex-1 p-3 overflow-auto flex items-start justify-center sm:p-6">
             <div className="w-full max-w-2xl">
               <div className="bg-[#111127] border border-[#1e1e3a] rounded-2xl overflow-hidden aspect-[3/4] flex items-center justify-center relative shadow-2xl">
 
@@ -708,12 +715,14 @@ export default function Workspace() {
                       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 p-2 bg-black/60 backdrop-blur-md rounded-2xl border border-white/15 shadow-2xl">
                         <button 
                           onClick={() => setActivePreview('model1')} 
+                          aria-label="Nano Banana Pro sonucunu göster"
                           className={`relative w-14 h-20 rounded-xl overflow-hidden border-2 transition-all duration-300 ${activePreview === 'model1' ? 'border-purple-500 scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)]' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-100'}`}
                         >
                           <img src={resultImage} alt="Nano Banana" className="w-full h-full object-cover" />
                         </button>
                         <button 
                           onClick={() => setActivePreview('model2')} 
+                          aria-label="SeedDream 4.5 sonucunu göster"
                           className={`relative w-14 h-20 rounded-xl overflow-hidden border-2 transition-all duration-300 ${activePreview === 'model2' ? 'border-purple-500 scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)]' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-100'}`}
                         >
                           <img src={mukayeseImage} alt="SeedDream" className="w-full h-full object-cover" />

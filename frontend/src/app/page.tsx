@@ -16,6 +16,7 @@ export default function Home() {
           <div className="flex items-center gap-6">
             <a href="#features" className="text-sm text-gray-400 hover:text-white transition-colors">Özellikler</a>
             <a href="#how-it-works" className="text-sm text-gray-400 hover:text-white transition-colors">Nasıl Çalışır</a>
+            <a href="#pricing" className="hidden sm:inline text-sm text-gray-400 hover:text-white transition-colors">Fiyatlandırma</a>
             <Link 
               href="/workspace/intimate-apparel" 
               className="text-sm px-4 py-2 rounded-md bg-white/10 hover:bg-white/20 border border-white/5 transition-all text-white font-medium"
@@ -124,8 +125,25 @@ export default function Home() {
         </div>
       </section>
 
+      <section id="pricing" className="border-t border-white/5 bg-[#0a0a0a] px-6 py-20">
+        <div className="mx-auto max-w-5xl text-center">
+          <h2 className="text-3xl font-bold">Kullandığınız kadar kredi</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-gray-300">Her üretimin kredi maliyeti işlemden önce çalışma alanında gösterilir. Krediler Lingeria hesabınıza özeldir ve fasheone.com bakiyesiyle otomatik birleşmez.</p>
+          <div className="mt-10 grid gap-5 sm:grid-cols-3">
+            {['Başlangıç · 100 kredi', 'Stüdyo · 250 kredi', 'Profesyonel · 500 kredi'].map((plan) => <div key={plan} className="rounded-xl border border-white/10 bg-white/[0.04] p-6 font-semibold">{plan}<p className="mt-2 text-sm font-normal text-gray-400">Güncel fiyat ve ödeme koşulları satın alma ekranında gösterilir.</p></div>)}
+          </div>
+        </div>
+      </section>
+
       <footer className="py-8 border-t border-white/5 bg-black text-center">
-        <p className="text-gray-500 text-sm">© {new Date().getFullYear()} Fasheone AI. Tüm hakları saklıdır.</p>
+        <nav aria-label="Yasal ve iletişim bağlantıları" className="mb-4 flex flex-wrap justify-center gap-5 text-sm text-gray-300">
+          <Link href="/privacy" className="hover:text-white">Gizlilik</Link>
+          <Link href="/terms" className="hover:text-white">Kullanım Şartları</Link>
+          <Link href="/cookies" className="hover:text-white">Çerezler</Link>
+          <Link href="/contact" className="hover:text-white">İletişim</Link>
+          <a href="#pricing" className="hover:text-white">Fiyatlandırma</a>
+        </nav>
+        <p className="text-gray-400 text-sm">© {new Date().getFullYear()} Lingeria by Fasheone. Tüm hakları saklıdır.</p>
       </footer>
     </div>
   );

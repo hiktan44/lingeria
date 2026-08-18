@@ -1,0 +1,2 @@
+import { LegalPage } from '../_components/LegalPage';
+export default function Page() { return <LegalPage title="İletişim"><p>Hesap, ödeme, veri talepleri ve teknik destek için <a className="text-purple-300 underline" href="mailto:info@fasheone.com">info@fasheone.com</a> adresine yazabilirsiniz.</p><p>TEXMART LTD · 284 Chase Road, A Block Unit, 2nd Floor, London, Birleşik Krallık</p></LegalPage>; }

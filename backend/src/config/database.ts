@@ -69,6 +69,22 @@ export async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)
     `);
 
+    await query(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash TEXT UNIQUE NOT NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        used_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_password_reset_token_hash
+      ON password_reset_tokens(token_hash)
+    `);
+
     console.log('Database tables initialized');
   } catch (error) {
     console.error('Failed to initialize database:', error);
