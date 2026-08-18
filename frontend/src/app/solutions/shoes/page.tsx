@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { api } from '@/lib/api';
 
 const VIBES = [
   { id: 'luxury', label: 'Lüks', icon: '✨', desc: 'Silent Luxury - Mermer kaide, editorial' },
@@ -38,21 +39,16 @@ export default function ShoesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('http://localhost:4000/api/v1/ai/generate', { // adjusted backend URL to port 4000
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageUrl: previewUrl,
-          category: 'shoe',
-          vibe: selectedVibe,
-          shoeType: 'sneaker', // User could choose this in a more advanced UI
-          material: 'premium material',
-          selectedModel: ['luxury', 'action'].includes(selectedVibe) ? 'SeedDream 5.0' : 'Nano Banana Pro', // Smart routing heuristic
-        })
+      const data = await api.generate({
+        imageUrl: previewUrl,
+        category: 'shoe',
+        vibe: selectedVibe,
+        shoeType: 'sneaker',
+        material: 'premium material',
+        selectedModel: ['luxury', 'action'].includes(selectedVibe)
+          ? 'SeedDream 5.0'
+          : 'Nano Banana Pro',
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Üretim sırasında bir hata oluştu');
 
       setResultUrl(data.resultUrl);
     } catch (err: any) {
