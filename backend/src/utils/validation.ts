@@ -40,8 +40,8 @@ export function validateAuthInput(body: any): { valid: boolean; errors: string[]
 
   if (!body.password || typeof body.password !== 'string') {
     errors.push('Şifre gereklidir');
-  } else if (body.password.length < 8) {
-    errors.push('Şifre en az 8 karakter olmalıdır');
+  } else if (body.password.length < 6) {
+    errors.push('Şifre en az 6 karakter olmalıdır');
   }
 
   return { valid: errors.length === 0, errors };

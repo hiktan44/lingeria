@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: fasheone
-      POSTGRES_PASSWORD: fasheone_db_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be configured}
       POSTGRES_DB: lingeria
     ports:
       - "5432:5432"
@@ -43,19 +43,25 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=4000
-      - DATABASE_URL=postgresql://fasheone:fasheone_db_password@postgres:5432/lingeria
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_USER=fasheone
-      - POSTGRES_PASSWORD=fasheone_db_password
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be configured}
       - POSTGRES_DB=lingeria
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET:-fasheone-secret-key-change-in-production}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be configured}
       - JWT_EXPIRES_IN=24h
-      - KIE_API_KEY=${KIE_API_KEY:-dcbf5792e5a6f789a6363f77e092daf4}
+      - KIE_API_KEY=${KIE_API_KEY:?KIE_API_KEY must be configured}
       - KIE_BASE_URL=https://api.kie.ai
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3001,https://your-domain.com}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://lingeria.fasheone.com}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - SMTP_HOST=${SMTP_HOST:?SMTP_HOST must be configured}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_USER=${SMTP_USER:?SMTP_USER must be configured}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:?SMTP_PASSWORD must be configured}
+      - SMTP_FROM=${SMTP_FROM:-Lingeria <info@fasheone.com>}
+      - RESET_BASE_URL=https://lingeria.fasheone.com/reset-password
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,8 +78,9 @@ services:
       - "3001:3001"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL:-http://localhost:4000}
-      - NEXT_PUBLIC_API_URL=${BACKEND_URL:-http://localhost:4000}
+      - BACKEND_INTERNAL_URL=http://backend:4000
+      - NEXT_PUBLIC_BACKEND_URL=
+      - NEXT_PUBLIC_API_URL=
     depends_on:
       - backend
 

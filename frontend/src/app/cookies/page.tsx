@@ -1,0 +1,2 @@
+import { LegalPage } from '../_components/LegalPage';
+export default function Page() { return <LegalPage title="Çerez Politikası"><p>Oturum güvenliği ve temel ürün işlevleri için zorunlu depolama teknolojileri kullanılır. Zorunlu olmayan analitik veya pazarlama çerezleri ancak izin verdiğinizde etkinleştirilir.</p><p>Tarayıcı ayarlarınızdan çerezleri silebilir veya engelleyebilirsiniz; bu durumda giriş gerektiren özellikler çalışmayabilir.</p></LegalPage>; }

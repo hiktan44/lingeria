@@ -1,4 +1,9 @@
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const configuredBackendUrl =
+  process.env.NEXT_PUBLIC_BACKEND_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim();
+
+// Production defaults to the same origin. Next rewrites /api and /health to the
+// internal backend, so browser bundles never fall back to localhost.
+const BACKEND_URL = (configuredBackendUrl || '').replace(/\/$/, '');
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -31,7 +36,10 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
     headers,
   });
 
-  const data = await response.json();
+  const contentType = response.headers.get('content-type') ?? '';
+  const data = contentType.includes('application/json')
+    ? await response.json()
+    : { error: (await response.text()) || `API error: ${response.status}` };
 
   if (!response.ok) {
     throw new Error(data.error || `API error: ${response.status}`);
@@ -61,6 +69,20 @@ export const api = {
     });
     if (data.token) setToken(data.token);
     return data;
+  },
+
+  async forgotPassword(email: string) {
+    return apiRequest('/api/v1/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async resetPassword(token: string, password: string) {
+    return apiRequest('/api/v1/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    });
   },
 
   async logout() {

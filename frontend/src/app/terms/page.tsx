@@ -1,0 +1,2 @@
+import { LegalPage } from '../_components/LegalPage';
+export default function Page() { return <LegalPage title="Kullanım Şartları"><p>Lingeria kredi tabanlı bir AI moda görseli hizmetidir. Hesap güvenliğinizden ve yüklediğiniz materyaller üzerindeki haklardan siz sorumlusunuz.</p><p>Çıktıları yayımlamadan önce doğruluk, mevzuat ve üçüncü taraf hakları açısından kontrol etmelisiniz. Hukuka aykırı kullanım yasaktır.</p><p>Kredi maliyeti üretimden önce gösterilir; güncel satın alma ve iade koşulları ödeme ekranında sunulur.</p></LegalPage>; }
