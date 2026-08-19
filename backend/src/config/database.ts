@@ -1,6 +1,10 @@
-import { Pool } from 'pg';
+import { Pool, types } from 'pg';
 import dotenv from 'dotenv';
 dotenv.config();
+
+// pg, NUMERIC/DECIMAL degerlerini varsayilan olarak string dondurur.
+// Istemci bunlari sayi olarak kullaniyor (balance.toFixed), bu yuzden parse ediyoruz.
+types.setTypeParser(types.builtins.NUMERIC, (value: string) => parseFloat(value));
 
 const pool = new Pool({
   host: process.env.POSTGRES_HOST || 'localhost',

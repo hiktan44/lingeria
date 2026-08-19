@@ -18,6 +18,12 @@ const MODELS = [
   { name: 'SeedDream 4.5',      credit: 8  },
 ];
 
+// Backend DECIMAL alanlarini string dondurebilir; sayiya cevirmeden render etme.
+function toBalance(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 // ── Toast bileşeni ────────────────────────────────────────────────────────────
 
 type ToastType = 'success' | 'error' | 'info';
@@ -169,7 +175,7 @@ export default function Workspace() {
     if (token) {
       api.getMe().then(res => {
         setUser(res.user);
-        setBalance(res.user.balance);
+        setBalance(toBalance(res.user?.balance));
       }).catch(() => {
         api.removeToken();
       });
@@ -188,7 +194,7 @@ export default function Workspace() {
 
   const handleAuth = (userData: any) => {
     setUser(userData);
-    setBalance(userData.balance);
+    setBalance(toBalance(userData?.balance));
     showToast('Giriş başarılı!', 'success');
   };
 
@@ -311,7 +317,7 @@ export default function Workspace() {
 
         setActivePreview('model1');
         showToast('Mukayeseli üretim tamamlandı!', 'success');
-        try { const bal = await api.getBalance(); setBalance(bal.balance); } catch {}
+        try { const bal = await api.getBalance(); setBalance(toBalance(bal.balance)); } catch {}
 
       } else {
         const data = await api.generate({
@@ -325,7 +331,7 @@ export default function Workspace() {
           setResultImage(data.resultUrl);
           setMukayeseImage(null);
           showToast('Görsel başarıyla oluşturuldu!', 'success');
-          try { const bal = await api.getBalance(); setBalance(bal.balance); } catch {}
+          try { const bal = await api.getBalance(); setBalance(toBalance(bal.balance)); } catch {}
         } else {
           throw new Error('Sonuç URL\'i alınamadı');
         }
@@ -386,7 +392,7 @@ export default function Workspace() {
           <div className="p-3 border-b border-[#1e1e3a] flex items-center justify-between">
             {user ? (
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold">{user.email[0].toUpperCase()}</div>
+                <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold">{user.email?.[0]?.toUpperCase() ?? '?'}</div>
                 <div className="flex flex-col">
                   <span className="text-xs text-gray-300 truncate max-w-[140px]">{user.email}</span>
                   <span className="text-xs text-purple-400 font-bold">{balance !== null ? `${balance.toFixed(2)} ₺` : '...'} bakiye</span>
