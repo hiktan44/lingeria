@@ -3,6 +3,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { api } from '../../../lib/api';
 import { AuthModal } from '../../../components/AuthModal';
+import { useT } from '../../../lib/i18n';
+import { LangSwitch } from '../../../components/LangSwitch';
 
 // ── Sabitler ──────────────────────────────────────────────────────────────────
 
@@ -116,6 +118,7 @@ function UploadZone({ label, image, onUpload, inputRef }: {
 // ── Ana Sayfa ─────────────────────────────────────────────────────────────────
 
 export default function Workspace() {
+  const { t } = useT();
   const [user, setUser] = useState<any>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [showAuth, setShowAuth] = useState(false);
@@ -195,20 +198,20 @@ export default function Workspace() {
   const handleAuth = (userData: any) => {
     setUser(userData);
     setBalance(toBalance(userData?.balance));
-    showToast('Giriş başarılı!', 'success');
+    showToast(t('toast.loginSuccess'), 'success');
   };
 
   const handleLogout = () => {
     api.logout();
     setUser(null);
     setBalance(null);
-    showToast('Çıkış yapıldı', 'info');
+    showToast(t('toast.logoutSuccess'), 'info');
   };
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'product' | 'drawing' | 'manken' | 'desen') => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { showToast('Dosya 10MB\'dan büyük olamaz', 'error'); return; }
+    if (file.size > 10 * 1024 * 1024) { showToast(t('toast.fileTooLarge'), 'error'); return; }
     const reader = new FileReader();
     reader.onloadend = () => {
       if (type === 'product') setProductImage(reader.result as string);
@@ -221,15 +224,15 @@ export default function Workspace() {
 
   const handleGenerate = async () => {
     if (!user) { setShowAuth(true); return; }
-    if (!productImage) { showToast('Lütfen önce bir ürün görseli yükleyin', 'error'); return; }
+    if (!productImage) { showToast(t('toast.uploadProductFirst'), 'error'); return; }
     if (enBoyOrani === 'Özel' && !/^\d+[x*]\d+$/.test(ozelOlcu)) {
-      showToast('Geçersiz özel ölçü formatı (örn: 1024x1024)', 'error');
+      showToast(t('toast.invalidResolution'), 'error');
       return;
     }
     setIsLoading(true);
     setResultImage(null);
 
-    const t = (str: string) => {
+    const translateForAI = (str: string) => {
       const db: Record<string,string> = {
         'İç Giyim': 'Lingerie', 'Bra': 'Bra', 'Panty': 'Panty', 'Bra Set': 'Bra Set', 'Shapewear': 'Shapewear', 'Loungewear': 'Loungewear', 'Swimwear': 'Swimwear',
         'Stüdyo Aydınlığı': 'Studio Lighting', 'Doğal Işık': 'Natural Light', 'Golden Hour': 'Golden Hour', 'Dramatik': 'Dramatic Lighting', 'Editoryal': 'Editorial Fashion Style',
@@ -254,11 +257,11 @@ export default function Workspace() {
     let resolvedClothingType = kyafetTuru;
     if (kyafetTuru === 'Genel') {
       try {
-        showToast('Kıyafet analizi yapılıyor...', 'info');
+        showToast(t('toast.analyzingClothing'), 'info');
         const data = await api.analyzeImage(productImage);
         if (data.category) {
           resolvedClothingType = data.category;
-          showToast(`Kıyafet tespit edildi: ${data.category}`, 'success');
+          showToast(`${t('toast.clothingDetected')} ${data.category}`, 'success');
         } else {
           resolvedClothingType = 'Fashion piece';
         }
@@ -283,11 +286,11 @@ export default function Workspace() {
     }
 
     const prompt = [
-      `${t(sunumModu)} ${t(resolvedClothingType)} photography.`,
-      `Camera Angle: ${t(kameraAcisi)}. Lighting: ${t(isikTipi)}, ${t(flasTipi)}. Tone: ${t(renktonu)}. Shot: ${t(cekim)}.`,
-      `Model: ${t(etnikKoken)} ethnicity ${t(modelYas)} ${t(cinsiyet)}, ${t(vucutTipi)}, ${t(sacRengi)} ${t(sacStili)} hair.`,
-      `Shoes: ${t(ayakkabi)}. Accessories: ${t(aksesuar)}.`,
-      `Setting: ${t(mekan)}.`,
+      `${translateForAI(sunumModu)} ${translateForAI(resolvedClothingType)} photography.`,
+      `Camera Angle: ${translateForAI(kameraAcisi)}. Lighting: ${translateForAI(isikTipi)}, ${translateForAI(flasTipi)}. Tone: ${translateForAI(renktonu)}. Shot: ${translateForAI(cekim)}.`,
+      `Model: ${translateForAI(etnikKoken)} ethnicity ${translateForAI(modelYas)} ${translateForAI(cinsiyet)}, ${translateForAI(vucutTipi)}, ${translateForAI(sacRengi)} ${translateForAI(sacStili)} hair.`,
+      `Shoes: ${translateForAI(ayakkabi)}. Accessories: ${translateForAI(aksesuar)}.`,
+      `Setting: ${translateForAI(mekan)}.`,
       translatedZemin ? `Background specific: ${translatedZemin}.` : '',
       translatedEkstra,
     ].filter(Boolean).join(' ');
@@ -310,13 +313,13 @@ export default function Workspace() {
         if ((res1 as any).error && (res2 as any).error) throw new Error(`${(res1 as any).error} & ${(res2 as any).error}`);
         
         if ((res1 as any).resultUrl) setResultImage((res1 as any).resultUrl);
-        else showToast(`Nano Banana Pro Hatası: ${(res1 as any).error}`, 'error');
+        else showToast(`${t('toast.nanoBananaError')} ${(res1 as any).error}`, 'error');
 
         if ((res2 as any).resultUrl) setMukayeseImage((res2 as any).resultUrl);
-        else showToast(`SeedDream Hatası: ${(res2 as any).error}`, 'error');
+        else showToast(`${t('toast.seedDreamError')} ${(res2 as any).error}`, 'error');
 
         setActivePreview('model1');
-        showToast('Mukayeseli üretim tamamlandı!', 'success');
+        showToast(t('toast.comparativeSuccess'), 'success');
         try { const bal = await api.getBalance(); setBalance(toBalance(bal.balance)); } catch {}
 
       } else {
@@ -330,14 +333,14 @@ export default function Workspace() {
         if (data.resultUrl) {
           setResultImage(data.resultUrl);
           setMukayeseImage(null);
-          showToast('Görsel başarıyla oluşturuldu!', 'success');
+          showToast(t('toast.imageGenerated'), 'success');
           try { const bal = await api.getBalance(); setBalance(toBalance(bal.balance)); } catch {}
         } else {
           throw new Error('Sonuç URL\'i alınamadı');
         }
       }
     } catch (err: any) {
-      showToast(err.message || 'Üretim başarısız, tekrar deneyin', 'error');
+      showToast(err.message || t('toast.generationFailed'), 'error');
       console.error('[Workspace] generate error:', err);
     } finally {
       setIsLoading(false);
@@ -347,9 +350,9 @@ export default function Workspace() {
   const handleDownload = async () => {
     if (!resultImage) return;
     try {
-      showToast('İndirme başlatılıyor...', 'info');
+      showToast(t('toast.downloadStarting'), 'info');
       const response = await fetch(resultImage);
-      if (!response.ok) throw new Error('Görsel indirilemedi');
+      if (!response.ok) throw new Error(t('toast.imageFailed'));
       const blob = await response.blob();
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
@@ -359,10 +362,10 @@ export default function Workspace() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      showToast('Görsel indirildi!', 'success');
+      showToast(t('toast.imageDownloaded'), 'success');
     } catch (err: any) {
       window.open(resultImage, '_blank');
-      showToast('Doğrudan indirme başarısız, yeni sekmede açıldı', 'info');
+      showToast(t('toast.downloadFailed'), 'info');
     }
   };
 
@@ -370,9 +373,9 @@ export default function Workspace() {
     if (!resultImage) return;
     try {
       await navigator.clipboard.writeText(resultImage);
-      showToast('URL panoya kopyalandı', 'success');
+      showToast(t('toast.urlCopied'), 'success');
     } catch {
-      showToast('Kopyalama başarısız', 'error');
+      showToast(t('toast.copyFailed'), 'error');
     }
   };
 
@@ -395,21 +398,22 @@ export default function Workspace() {
                 <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold">{user.email?.[0]?.toUpperCase() ?? '?'}</div>
                 <div className="flex flex-col">
                   <span className="text-xs text-gray-300 truncate max-w-[140px]">{user.email}</span>
-                  <span className="text-xs text-purple-400 font-bold">{balance !== null ? `${balance.toFixed(2)} ₺` : '...'} bakiye</span>
+                  <span className="text-xs text-purple-400 font-bold">{balance !== null ? `${balance.toFixed(2)} ₺` : '...'} {t('workspace.balance')}</span>
                 </div>
-                <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-red-400 ml-2">Çıkış</button>
+                <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-red-400 ml-2">{t('workspace.logout')}</button>
               </div>
             ) : (
               <button onClick={() => setShowAuth(true)} className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs py-2 rounded-lg font-medium">
-                Giriş Yap / Kayıt Ol
+                {t('workspace.login')}
               </button>
             )}
+            <LangSwitch />
           </div>
 
           {/* Yükleme Alanı */}
           <div className="p-3 border-b border-[#1e1e3a] grid grid-cols-2 gap-2">
-            <UploadZone label="① Çizim (Opsiyonel)" image={drawingImage} onUpload={e => handleUpload(e, 'drawing')} inputRef={drawingRef} />
-            <UploadZone label="② Ürün Görseli *"    image={productImage} onUpload={e => handleUpload(e, 'product')} inputRef={productRef} />
+            <UploadZone label={`① ${t('workspace.drawingUpload')}`} image={drawingImage} onUpload={e => handleUpload(e, 'drawing')} inputRef={drawingRef} />
+            <UploadZone label={`② ${t('workspace.productUpload')}`}    image={productImage} onUpload={e => handleUpload(e, 'product')} inputRef={productRef} />
           </div>
 
           <div className="p-3 space-y-4 lg:flex-1 lg:overflow-y-auto">
@@ -417,13 +421,13 @@ export default function Workspace() {
             {/* Model Seçimi */}
             <section>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-purple-400 font-bold text-base">⚙ Model Seçimi</h3>
+                <h3 className="text-purple-400 font-bold text-base">⚙ {t('workspace.modelSelection')}</h3>
                 <label className="flex items-center gap-2 cursor-pointer bg-[#111127] border border-[#2a2a4a] px-2 py-1 rounded hover:border-purple-500 transition shadow-lg">
                   <input type="checkbox" className="hidden" checked={mukayeseliUret} onChange={() => setMukayeseliUret(!mukayeseliUret)} />
                   <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${mukayeseliUret ? 'bg-purple-500 border-purple-500' : 'border-gray-500'}`}>
                     {mukayeseliUret && <span className="text-white text-[10px] leading-none">✓</span>}
                   </div>
-                  <span className={`text-xs font-bold leading-none select-none ${mukayeseliUret ? 'text-purple-400' : 'text-gray-400'}`}>Mukayeseli</span>
+                  <span className={`text-xs font-bold leading-none select-none ${mukayeseliUret ? 'text-purple-400' : 'text-gray-400'}`}>{t('workspace.comparative')}</span>
                 </label>
               </div>
               
@@ -436,7 +440,7 @@ export default function Workspace() {
                           <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${selectedModel === m.name ? 'border-purple-500 bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]' : 'border-gray-600'}`} />
                           {m.name}
                         </span>
-                        <span className="text-xs text-purple-300 font-medium">{m.credit} kredi</span>
+                        <span className="text-xs text-purple-300 font-medium">{m.credit} {t('workspace.credits')}</span>
                       </label>
                     </div>
                   ))}
@@ -445,14 +449,14 @@ export default function Workspace() {
 
               <div className="space-y-2">
                 <div>
-                  <p className="text-gray-400 mb-1">Kıyafet Türü</p>
+                  <p className="text-gray-400 mb-1">{t('workspace.clothingType')}</p>
                   <Select value={kyafetTuru} onChange={setKyafetTuru}
                     options={['Genel','İç Giyim','Bra','Panty','Bra Set','Shapewear','Loungewear','Swimwear']} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <p className="text-gray-400 mb-1">En Boy Oranı</p>
+                    <p className="text-gray-400 mb-1">{t('workspace.aspectRatio')}</p>
                     <Select value={enBoyOrani} onChange={setEnBoyOrani}
                       options={['3:4', '1:1', '4:3', '9:16', '16:9', 'Özel']} />
                   </div>
@@ -653,9 +657,9 @@ export default function Workspace() {
           {/* Alt Aksiyon */}
           <div className="p-3 border-t border-[#1e1e3a] space-y-2">
             <div className="flex items-center justify-between text-sm text-gray-400">
-              <span>Model: <span className="text-purple-400 font-bold">{currentCredit} kredi</span></span>
+              <span>{t('workspace.currentCredit')} <span className="text-purple-400 font-bold">{currentCredit} {t('workspace.credits')}</span></span>
               <span className={balance !== null && balance < currentCredit ? 'text-red-400' : 'text-gray-500'}>
-                Bakiye: {balance !== null ? `${balance.toFixed(2)} ₺` : 'Giriş yapın'}
+                {t('workspace.yourBalance')} {balance !== null ? `${balance.toFixed(2)} ₺` : t('workspace.loginRequired')}
               </span>
             </div>
             <button
@@ -667,9 +671,9 @@ export default function Workspace() {
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
-                  İşleniyor...
+                  {t('workspace.processing')}
                 </span>
-              ) : '⚡ Canlı Model Oluştur'}
+              ) : `⚡ ${t('workspace.generate')}`}
             </button>
           </div>
         </aside>
@@ -785,7 +789,7 @@ export default function Workspace() {
                   </button>
                   <button
                     id="favorite-btn"
-                    onClick={() => showToast('Favorilere eklendi', 'success')}
+                    onClick={() => showToast(t('toast.favorited'), 'success')}
                     className="bg-[#1a1a2e] border border-[#2a2a4a] hover:border-pink-500 text-gray-300 px-4 py-2 rounded-lg text-sm transition"
                   >
                     ❤️ Favorile
