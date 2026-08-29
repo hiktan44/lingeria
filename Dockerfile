@@ -47,3 +47,7 @@ ENV PORT=3001
 ENV NODE_ENV=production
 
 CMD ["./start.sh"]
+
+# --- Agentic Security Firewall: Katman 2 (non-root hardening) ---
+RUN [ -d /app ] && chown -R node:node /app || true
+USER node

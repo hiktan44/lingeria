@@ -27,3 +27,7 @@ EXPOSE 3001
 ENV PORT 3001
 
 CMD ["node", "server.js"]
+
+# --- Agentic Security Firewall: Katman 2 (non-root hardening) ---
+RUN [ -d /app ] && chown -R node:node /app || true
+USER node
