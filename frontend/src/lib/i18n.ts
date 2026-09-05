@@ -29,7 +29,7 @@ export const DICT: Record<string, Record<Lang, string>> = {
   'features.title': { tr: 'Sınırları Kaldıran Özellikler', en: 'Limitless Features' },
   'features.subtitle': { tr: 'Geleneksel fotoğraf çekimlerinin karmaşasını unutun. Fasheone AI ile tüm kontrol elinizde.', en: 'Forget the complexity of traditional photo shoots. With Fasheone AI, you have full control.' },
   'features.advancedModels.title': { tr: 'Gelişmiş Model Senaryoları', en: 'Advanced Model Scenarios' },
-  'features.advancedModels.desc': { tr: 'Nano Banana Pro ve SeedDream 5.0 gibi endüstri lideri AI modelleri ile en yüksek fotorealistik kaliteyi elde edin.', en: 'Achieve the highest photorealistic quality with industry-leading AI models like Nano Banana Pro and SeedDream 5.0.' },
+  'features.advancedModels.desc': { tr: 'Nano Banana Pro ve SeedDream 5.0 Pro gibi endüstri lideri AI modelleri ile en yüksek fotorealistik kaliteyi elde edin.', en: 'Achieve the highest photorealistic quality with industry-leading AI models like Nano Banana Pro and SeedDream 5.0 Pro.' },
   'features.modelCustomization.title': { tr: 'Manken Özelleştirme', en: 'Model Customization' },
   'features.modelCustomization.desc': { tr: 'Yaş, vücut tipi, saç rengi ve boy uzunluğu gibi parametreleri saniyeler içinde değiştirerek hedeflenen kitleye uygun görseller üretin.', en: 'Generate visuals tailored to your target audience by changing parameters like age, body type, hair color, and height in seconds.' },
   'features.lightingControl.title': { tr: 'Işık ve Mekan Kontrolü', en: 'Lighting and Location Control' },

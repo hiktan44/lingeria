@@ -18,6 +18,7 @@ const COLOR_SWATCHES = [
 const MODELS = [
   { name: 'Nano Banana Pro',    credit: 12 },
   { name: 'SeedDream 4.5',      credit: 8  },
+  { name: 'SeedDream 5.0 Pro',  credit: 15 },
 ];
 
 // Backend DECIMAL alanlarini string dondurebilir; sayiya cevirmeden render etme.

@@ -46,7 +46,7 @@ export default function ShoesPage() {
         shoeType: 'sneaker',
         material: 'premium material',
         selectedModel: ['luxury', 'action'].includes(selectedVibe)
-          ? 'SeedDream 5.0'
+          ? 'SeedDream 5.0 Pro'
           : 'Nano Banana Pro',
       });
 

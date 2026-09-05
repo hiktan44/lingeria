@@ -12,7 +12,8 @@ const MODEL_MAP: Record<string, string> = {
   'Nano Banana Pro':   'nano-banana-pro',
   'Nano Banana 2':     'nano-banana-2',
   'SeedDream 4.5':     'seedream/4.5-edit',
-  'SeedDream 5.0':     'seedream/5-lite-image-to-image',
+  'SeedDream 5.0':     'seedream/5-pro-image-to-image', // Eski istemciler için takma ad
+  'SeedDream 5.0 Pro': 'seedream/5-pro-image-to-image',
   'ChatGPT Image 1.5': 'gpt-image/1.5-image-to-image',
 };
 
@@ -21,6 +22,7 @@ const MODEL_COSTS: Record<string, number> = {
   'Nano Banana 2': 10,
   'SeedDream 4.5': 8,
   'SeedDream 5.0': 15,
+  'SeedDream 5.0 Pro': 15,
   'ChatGPT Image 1.5': 20,
 };
 

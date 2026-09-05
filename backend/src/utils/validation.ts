@@ -13,7 +13,7 @@ export function validateGenerateInput(body: any): { valid: boolean; errors: stri
     }
   }
 
-  const validModels = ['Nano Banana Pro', 'Nano Banana 2', 'SeedDream 4.5', 'SeedDream 5.0', 'ChatGPT Image 1.5'];
+  const validModels = ['Nano Banana Pro', 'Nano Banana 2', 'SeedDream 4.5', 'SeedDream 5.0', 'SeedDream 5.0 Pro', 'ChatGPT Image 1.5'];
   if (body.selectedModel && !validModels.includes(body.selectedModel)) {
     errors.push('Geçersiz model. Seçilebilir: ' + validModels.join(', '));
   }
