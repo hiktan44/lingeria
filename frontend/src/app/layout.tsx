@@ -14,6 +14,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
+  manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, title: 'Lingeria', statusBarStyle: 'default' },
   metadataBase: new URL("https://lingeria.fasheone.com"),
   title: { default: "Lingeria by Fasheone - AI Moda Stüdyosu", template: "%s · Lingeria" },
   description: "Fiziksel numunaları e-ticaret görsellerine dönüştüren AI destekli moda stüdyosu",
@@ -42,7 +44,10 @@ export default function RootLayout({
         style={{ fontFamily: 'var(--font-geist-sans)' }}
       >
         {children}
+      <script dangerouslySetInnerHTML={{ __html: "if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){window.addEventListener('load', function(){navigator.serviceWorker.register('/sw.js').catch(function(){});})}"}} />
       </body>
     </html>
   );
 }
+
+export const viewport = { themeColor: '#9d174d' };
