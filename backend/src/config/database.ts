@@ -93,4 +93,22 @@ export async function initDatabase() {
   } catch (error) {
     console.error('Failed to initialize database:', error);
   }
+
+  // Dogrulanmis giris olaylari (Abone Takip paneli gunluk giris sayimi).
+  // Yalnizca kimlik + yontem + zaman; e-posta/IP/user-agent/token tutulmaz.
+  // Ayri try: bu tablo kurulamazsa diger tablolar ve giris etkilenmez.
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS login_events (
+        id TEXT PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        method TEXT NOT NULL,
+        at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS idx_login_events_at ON login_events(at)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_login_events_user_id ON login_events(user_id)`);
+  } catch (error) {
+    console.error('Failed to initialize login_events:', error);
+  }
 }

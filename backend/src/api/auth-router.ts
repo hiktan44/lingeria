@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/database';
 import { validateAuthInput } from '../utils/validation';
+import { recordLoginEvent } from '../utils/loginEvents';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
@@ -38,6 +39,7 @@ export default async function authRouterRoutes(server: FastifyInstance) {
 
       const newUser = result.rows[0];
 
+      await recordLoginEvent(newUser.id, 'register');
       const token = jwt.sign(
         { id: newUser.id, email: newUser.email },
         JWT_SECRET,
@@ -76,6 +78,7 @@ export default async function authRouterRoutes(server: FastifyInstance) {
         return reply.code(401).send({ error: 'Email veya şifre hatalı' });
       }
 
+      await recordLoginEvent(user.id, 'password');
       const token = jwt.sign(
         { id: user.id, email: user.email },
         JWT_SECRET,
