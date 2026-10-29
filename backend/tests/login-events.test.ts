@@ -22,10 +22,14 @@ d('login_events audit log (PostgreSQL)', () => {
     await db.query('DROP TABLE IF EXISTS login_events, generations, password_reset_tokens, users CASCADE');
     await initDatabase();
     await initDatabase(); // idempotent
+    const nativeMigration = require('node:fs').readFileSync(require('node:path').join(__dirname, '../migrations/20261029_issued_login_journal.sql'), 'utf8');
+    const client=await db.getClient();
+    try { await client.query('BEGIN'); await client.query(nativeMigration); await client.query('COMMIT'); } finally {client.release()}
   });
 
   beforeEach(async () => {
     await db.query('TRUNCATE users CASCADE');
+    await db.query('TRUNCATE lingeria_issued_login_events');
   });
 
   afterAll(async () => {
@@ -38,20 +42,21 @@ d('login_events audit log (PostgreSQL)', () => {
   const login = (email: string, password: string) =>
     server.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password } });
   const events = async () =>
-    (await db.query('SELECT user_id::text AS user_id, method FROM login_events ORDER BY at')).rows;
+    (await db.query('SELECT actor_id AS user_id, method FROM lingeria_issued_login_events ORDER BY at')).rows;
 
   test('table has only id, user_id, method, at and an index on at', async () => {
     const cols = await db.query(
-      "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'login_events' ORDER BY ordinal_position"
+      "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'lingeria_issued_login_events' ORDER BY ordinal_position"
     );
     expect(cols.rows).toEqual([
       { column_name: 'id', data_type: 'text' },
-      { column_name: 'user_id', data_type: 'uuid' },
+      { column_name: 'actor_id', data_type: 'text' },
       { column_name: 'method', data_type: 'text' },
       { column_name: 'at', data_type: 'timestamp with time zone' },
+      { column_name: 'excluded', data_type: 'boolean' },
     ]);
     const idx = await db.query("SELECT indexname FROM pg_indexes WHERE tablename = 'login_events'");
-    expect(idx.rows.map((r: any) => r.indexname)).toContain('idx_login_events_at');
+    expect(idx.rows.map((r: any) => r.indexname)).toContain('lingeria_issued_login_events_at');
   });
 
   test('register records one register event; successful login records password', async () => {
@@ -64,7 +69,7 @@ d('login_events audit log (PostgreSQL)', () => {
       { user_id: userId, method: 'register' },
       { user_id: userId, method: 'password' },
     ]);
-    const raw = await db.query('SELECT * FROM login_events');
+    const raw = await db.query('SELECT * FROM lingeria_issued_login_events');
     expect(JSON.stringify(raw.rows)).not.toContain('qa@example.test');
   });
 
@@ -76,24 +81,23 @@ d('login_events audit log (PostgreSQL)', () => {
     expect(await events()).toEqual([]);
   });
 
-  test('deleting a user cascades its events', async () => {
+  test('deleting a user preserves native events', async () => {
     await register('del@example.test');
     await db.query("DELETE FROM users WHERE email = 'del@example.test'");
-    expect(await events()).toEqual([]);
+    expect((await events()).length).toBe(1);
   });
 
-  test('login and register still succeed when the table is missing', async () => {
+  test('login and register withhold tokens when the native table is missing', async () => {
     const err = jest.spyOn(console, 'error').mockImplementation(() => {});
-    await db.query('DROP TABLE login_events');
+    await db.query('ALTER TABLE lingeria_issued_login_events RENAME TO lingeria_issued_login_events_off');
     try {
-      expect((await register('nt@example.test')).statusCode).toBe(201);
+      expect((await register('nt@example.test')).statusCode).toBe(503);
       const l = await login('nt@example.test', 'Test-pass-123');
-      expect(l.statusCode).toBe(200);
-      expect(JSON.parse(l.payload).token).toBeTruthy();
-      expect(err).toHaveBeenCalled();
+      expect(l.statusCode).toBe(503);
+      expect(JSON.parse(l.payload).token).toBeUndefined();
     } finally {
       err.mockRestore();
-      await initDatabase();
+      await db.query('ALTER TABLE lingeria_issued_login_events_off RENAME TO lingeria_issued_login_events');
     }
   });
 });

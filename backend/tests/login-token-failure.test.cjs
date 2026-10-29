@@ -6,7 +6,8 @@ const vm = require('node:vm');
 const ts = require('typescript');
 const code = ts.transpileModule(fs.readFileSync(require('node:path').join(__dirname, '../src/api/auth-router.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
 async function fixture() {
-  const state = { rows: [], failToken: false, valid: true };
+  const state = { rows: [], failToken: false, failJournal: false, valid: true };
+  class LoginJournalUnavailable extends Error {}
   const module = { exports: {} };
   const user = { id: 'account', email: 'fixture@example.test', password: 'hash' };
   const imports = {
@@ -14,7 +15,7 @@ async function fixture() {
     jsonwebtoken: { sign() { if (state.failToken) throw Error('signing failed'); return 'synthetic-token'; } },
     '../config/database': { query: async sql => ({ rows: sql.startsWith('SELECT id') ? [] : [user] }) },
     '../utils/validation': { validateAuthInput: () => ({ valid: true }) },
-    '../utils/loginEvents': { recordLoginEvent: async (...row) => state.rows.push(row) },
+    '../utils/loginEvents': { LoginJournalUnavailable, recordLoginEvent: async (...row) => {if(state.failJournal)throw new LoginJournalUnavailable('retry');state.rows.push(row)} },
     crypto: require('node:crypto'), nodemailer: {},
   };
   vm.runInNewContext(code, { module, exports: module.exports, require: id => { assert.ok(id in imports, id); return imports[id]; }, process: { env: { JWT_SECRET: 'fixture' } } });
@@ -40,3 +41,5 @@ test('wrong credential writes nothing', async () => {
   const { state, request } = await fixture(); state.valid = false;
   assert.equal((await request('/login')).status, 401); assert.equal(state.rows.length, 0);
 });
+
+for(const path of ['/login','/register'])test(`${path}: journal commit failure withholds token`,async()=>{const{state,request}=await fixture();state.failJournal=true;const response=await request(path);assert.equal(response.status,503);assert.equal(response.body.token,undefined);assert.equal(state.rows.length,0)});

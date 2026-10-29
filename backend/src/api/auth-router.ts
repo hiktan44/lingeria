@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/database';
 import { validateAuthInput } from '../utils/validation';
-import { recordLoginEvent } from '../utils/loginEvents';
+import { recordLoginEvent, LoginJournalUnavailable } from '../utils/loginEvents';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
@@ -44,7 +44,7 @@ export default async function authRouterRoutes(server: FastifyInstance) {
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN as any }
       );
-      await recordLoginEvent(newUser.id, 'register');
+      await recordLoginEvent(newUser.id, 'register', token, JWT_SECRET);
 
       return reply.code(201).send({
         message: 'Kayıt başarılı',
@@ -52,6 +52,7 @@ export default async function authRouterRoutes(server: FastifyInstance) {
         user: { id: newUser.id, email: newUser.email, balance: newUser.balance },
       });
     } catch (err: any) {
+      if (err instanceof LoginJournalUnavailable) return reply.code(503).send({ error: err.message });
       server.log.error('Register error:', err);
       return reply.code(500).send({ error: 'Kayıt sırasında hata oluştu' });
     }
@@ -83,7 +84,7 @@ export default async function authRouterRoutes(server: FastifyInstance) {
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN as any }
       );
-      await recordLoginEvent(user.id, 'password');
+      await recordLoginEvent(user.id, 'password', token, JWT_SECRET);
 
       return reply.send({
         message: 'Giriş başarılı',
@@ -91,6 +92,7 @@ export default async function authRouterRoutes(server: FastifyInstance) {
         user: { id: user.id, email: user.email, balance: user.balance },
       });
     } catch (err: any) {
+      if (err instanceof LoginJournalUnavailable) return reply.code(503).send({ error: err.message });
       server.log.error('Login error:', err);
       return reply.code(500).send({ error: 'Sunucu hatası' });
     }
