@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import dotenv from 'dotenv';
 import { dbConfig, initDatabase } from './config/database';
 import { errorHandler } from './middleware/errorHandler';
+import { clientIp } from './utils/rateLimit';
 
 dotenv.config();
 
@@ -26,9 +27,13 @@ server.register(cors, {
 });
 
 // Rate limiting
+// keyGenerator: gerçek istemci IP'si (bkz. utils/rateLimit.ts). Varsayılan
+// request.ip, Next.js vekilinin adresi olduğundan tüm kullanıcılar tek sayacı
+// paylaşıyordu (tek istemci herkesi 429'a düşürebiliyordu).
 server.register(rateLimit, {
   max: 100,
   timeWindow: '1 minute',
+  keyGenerator: clientIp,
   errorResponseBuilder: function (request, context) {
     return {
       statusCode: 429,

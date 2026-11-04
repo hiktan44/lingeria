@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { query } from '../config/database';
 import { buildPrompt, SHOE_NEGATIVE_PROMPT } from './promptBuilder';
 import { validateGenerateInput, validateImageField, MAX_TRANSLATE_CHARS } from '../utils/validation';
+import { ROUTE_RATE_LIMITS } from '../utils/rateLimit';
 
 const KIE_BASE = process.env.KIE_BASE_URL || 'https://api.kie.ai';
 const getKieKey = () => process.env.KIE_API_KEY || '';
@@ -101,7 +102,7 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
 
   // Sunucunun ücretli Gemini anahtarıyla çalışır: yalnız giriş yapmış kullanıcı,
   // yalnız raster görsel ve en fazla 10 MB.
-  server.post('/analyze-image', { preHandler: [requireAuth] }, async (request, reply) => {
+  server.post('/analyze-image', { preHandler: [requireAuth], config: { rateLimit: ROUTE_RATE_LIMITS.analyzeImage } }, async (request, reply) => {
     const { image } = (request.body || {}) as { image: string };
     if (!image) return reply.send({ category: 'Clothing' });
     const imageErrors: string[] = [];
