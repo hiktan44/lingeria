@@ -157,7 +157,9 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
         return reply.code(402).send({ error: 'Yetersiz bakiye', balance, cost });
       }
     } catch (err: any) {
+      // Bakiye doğrulanamıyorsa ücretli üretim başlatma (fail-closed).
       server.log.error('Balance check error: ' + (err?.message || String(err)));
+      return reply.code(503).send({ error: 'Bakiye doğrulanamadı, lütfen tekrar deneyin' });
     }
 
     const currentKey = getKieKey();
@@ -210,6 +212,30 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
     let uploadedManken = mankenImage;
     let uploadedDesen = desenImage;
 
+    // Krediyi Kie çağrısından ÖNCE tek bir atomik sorguyla ayır. Eskiden bakiye
+    // yalnızca okunup üretim (~120 sn) bittikten sonra düşülüyordu; paralel
+    // isteklerin hepsi kontrolü geçip bakiyeyi aşabiliyordu.
+    let reserved: { rows: any[] };
+    try {
+      reserved = await query(
+        'UPDATE users SET balance = balance - $1, updated_at = NOW() WHERE id = $2 AND balance >= $1 RETURNING balance',
+        [cost, userId]
+      );
+    } catch (err: any) {
+      server.log.error('Balance reserve error: ' + (err?.message || String(err)));
+      return reply.code(503).send({ error: 'Bakiye doğrulanamadı, lütfen tekrar deneyin' });
+    }
+    if (reserved.rows.length === 0) {
+      return reply.code(402).send({ error: 'Yetersiz bakiye', cost });
+    }
+    const refundReserved = async () => {
+      try {
+        await query('UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2', [cost, userId]);
+      } catch (refundErr: any) {
+        server.log.error('Balance refund error: ' + (refundErr?.message || String(refundErr)));
+      }
+    };
+
     try {
       if (hasImageEdit) {
         if (imageUrl.startsWith('data:image')) {
@@ -245,7 +271,7 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
       if (!resultUrl) throw new Error('Sonuç URL\'i boş döndü');
 
       try {
-        await query('UPDATE users SET balance = balance - $1, updated_at = NOW() WHERE id = $2', [cost, userId]);
+        // Kredi yukarıda ayrıldı; burada yalnızca üretim kaydı yazılır.
         await query(
           'INSERT INTO generations (user_id, result_url, model, prompt, cost) VALUES ($1, $2, $3, $4, $5)',
           [userId, resultUrl, selectedModel, generatedPrompt, cost]
@@ -257,8 +283,10 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
       return reply.send({ success: true, jobId: taskId, resultUrl, qualityScore: 95, complianceStatus: 'Catalog Ready', cost });
 
     } catch (err: any) {
+      // Üretim başarısız: ayrılan krediyi iade et (eski davranışta da ücret alınmıyordu).
+      await refundReserved();
       server.log.error(err);
-      
+
       let msg = 'AI üretimi başarısız';
       
       if (err?.response?.data) {
