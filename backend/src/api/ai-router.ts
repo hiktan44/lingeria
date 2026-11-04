@@ -31,7 +31,9 @@ async function requireAuth(request: any, reply: any) {
   const authHeader = request.headers.authorization;
   if (!authHeader) return reply.code(401).send({ error: 'Yetkilendirme gerekli' });
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-  const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+  // auth-router ile aynı kural: üretimde JWT_SECRET zorunlu, herkesçe bilinen yedek değer yok.
+  const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'development-only-secret');
+  if (!JWT_SECRET) return reply.code(500).send({ error: 'Sunucu yapılandırma hatası' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string };
     request.user = decoded;
@@ -278,7 +280,11 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
       );
 
       const taskId = createRes.data?.data?.taskId;
-      if (!taskId) throw new Error('taskId alınamadı: ' + JSON.stringify(createRes.data));
+      if (!taskId) {
+        // Sağlayıcı yanıtı yalnızca günlüğe; istemciye iç ayrıntı gönderilmez.
+        server.log.error({ kieResponse: createRes.data }, 'Kie createTask taskId dönmedi');
+        throw new Error('taskId alınamadı');
+      }
 
       const resultUrl = await pollTask(taskId);
       if (!resultUrl) throw new Error('Sonuç URL\'i boş döndü');
@@ -298,7 +304,12 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
     } catch (err: any) {
       // Üretim başarısız: ayrılan krediyi iade et (eski davranışta da ücret alınmıyordu).
       await refundReserved();
-      server.log.error(err);
+      // AxiosError nesnesinin tamamı günlüğe yazılırsa config.headers.Authorization
+      // (Kie anahtarı) da yazılıyordu; yalnızca güvenli alanlar günlüğe.
+      server.log.error(
+        { error: err?.message, status: err?.response?.status, providerResponse: err?.response?.data },
+        'AI generate error'
+      );
 
       let msg = 'AI üretimi başarısız';
       

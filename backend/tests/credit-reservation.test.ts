@@ -125,3 +125,30 @@ describe('/generate kredi ayırma', () => {
     expect(mockedPost).not.toHaveBeenCalled();
   });
 });
+
+describe('/generate hata günlüğü', () => {
+  test('sağlayıcı hatası günlüğe Kie anahtarı yazmaz', async () => {
+    const lines: string[] = [];
+    const app = fastify({ logger: { level: 'error', stream: { write: (l: string) => { lines.push(l); } } } });
+    await app.register(aiRouterRoutes, { prefix: '/api/v1/ai' });
+    await app.ready();
+    jest.clearAllMocks();
+    state.balance = 10;
+    state.generations = 0;
+    state.failSelect = false;
+    installFakeDb();
+    // AxiosError benzeri: config.headers içinde gerçek istekteki Bearer anahtarı bulunur.
+    const axiosLike = Object.assign(new Error('Request failed with status code 401'), {
+      config: { headers: { Authorization: 'Bearer credit-test-kie-key' } },
+      response: { status: 401, data: { code: 401, msg: 'unauthorized' } },
+    });
+    mockedPost.mockRejectedValue(axiosLike);
+    const res = await generate(app);
+    await app.close();
+    expect(res.statusCode).toBe(500);
+    expect(state.balance).toBe(10); // iade
+    const logged = lines.join('\n');
+    expect(logged).toContain('AI generate error');
+    expect(logged).not.toContain('credit-test-kie-key');
+  });
+});

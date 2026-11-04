@@ -6,7 +6,9 @@ async function requireAuth(request: any, reply: any) {
   const authHeader = request.headers.authorization;
   if (!authHeader) return reply.code(401).send({ error: 'Yetkilendirme gerekli' });
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-  const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+  // auth-router ile aynı kural: üretimde JWT_SECRET zorunlu, herkesçe bilinen yedek değer yok.
+  const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'development-only-secret');
+  if (!JWT_SECRET) return reply.code(500).send({ error: 'Sunucu yapılandırma hatası' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string };
     request.user = decoded;
