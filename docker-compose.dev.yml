@@ -10,7 +10,8 @@ services:
       POSTGRES_PASSWORD: fasheone_db_password
       POSTGRES_DB: lingeria
     ports:
-      - "5432:5432"
+      # Yalnız bu makineden erişim (yerel geliştirme); ağa açık değil.
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +25,8 @@ services:
     container_name: fasheone-redis-dev
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      # Yalnız bu makineden erişim (yerel geliştirme); Redis parolasız.
+      - "127.0.0.1:6379:6379"
 
 volumes:
   postgres_data_dev:

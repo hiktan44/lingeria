@@ -10,7 +10,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be configured}
       POSTGRES_DB: lingeria
     ports:
-      - "5432:5432"
+      # Yalnız sunucunun kendisinden erişim; servisler iç ağdan "postgres" adıyla bağlanır.
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/init.sql
@@ -25,7 +26,8 @@ services:
     container_name: fasheone-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      # Yalnız sunucunun kendisinden erişim; internete açık değil (Redis parolasız).
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
