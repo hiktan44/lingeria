@@ -3,7 +3,7 @@ import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/database';
 import { buildPrompt, SHOE_NEGATIVE_PROMPT } from './promptBuilder';
-import { validateGenerateInput } from '../utils/validation';
+import { validateGenerateInput, validateImageField, MAX_TRANSLATE_CHARS } from '../utils/validation';
 
 const KIE_BASE = process.env.KIE_BASE_URL || 'https://api.kie.ai';
 const getKieKey = () => process.env.KIE_API_KEY || '';
@@ -81,9 +81,14 @@ async function uploadToKie(base64DataUrl: string): Promise<string> {
 
 export default async function aiRouterRoutes(server: FastifyInstance) {
 
-  server.post('/translate', async (request, reply) => {
-    const { text } = request.body as any;
+  // Arayüz bu ucu yalnızca giriş yapmış kullanıcının üretim akışında çağırıyor;
+  // girişsiz erişim sunucuyu açık bir çeviri vekiline çeviriyordu.
+  server.post('/translate', { preHandler: [requireAuth] }, async (request, reply) => {
+    const { text } = (request.body || {}) as any;
     if (!text) return reply.send({ translated: '' });
+    if (typeof text !== 'string' || text.length > MAX_TRANSLATE_CHARS) {
+      return reply.code(400).send({ error: `Metin en fazla ${MAX_TRANSLATE_CHARS} karakter olabilir` });
+    }
     try {
       const res = await axios.get(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=tr&tl=en&dt=t&q=${encodeURIComponent(text)}`);
       const translated = res.data[0].map((item: any) => item[0]).join('');
@@ -94,10 +99,17 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
     }
   });
 
-  server.post('/analyze-image', async (request, reply) => {
-    const { image } = request.body as { image: string };
+  // Sunucunun ücretli Gemini anahtarıyla çalışır: yalnız giriş yapmış kullanıcı,
+  // yalnız raster görsel ve en fazla 10 MB.
+  server.post('/analyze-image', { preHandler: [requireAuth] }, async (request, reply) => {
+    const { image } = (request.body || {}) as { image: string };
     if (!image) return reply.send({ category: 'Clothing' });
-    
+    const imageErrors: string[] = [];
+    validateImageField(image, 'image', imageErrors);
+    if (imageErrors.length) {
+      return reply.code(400).send({ error: 'Validation failed', details: imageErrors });
+    }
+
     try {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
@@ -137,7 +149,7 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
   server.post('/generate', { preHandler: [requireAuth] }, async (request, reply) => {
     const { imageUrl, mankenImage, desenImage, modelKilitli, prompt, outputMode, complianceMode, selectedModel, category, vibe, shoeType, material, aspectRatio } = request.body as any;
 
-    const validation = validateGenerateInput({ imageUrl, selectedModel, aspectRatio });
+    const validation = validateGenerateInput({ imageUrl, mankenImage, desenImage, selectedModel, aspectRatio });
     if (!validation.valid) {
       return reply.code(400).send({ error: 'Validation failed', details: validation.errors });
     }

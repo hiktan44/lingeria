@@ -1,3 +1,31 @@
+// Yalnızca raster görsel data URL'leri kabul edilir; SVG ve görsel olmayan
+// türler (ör. data:text/html) reddedilir.
+const IMAGE_DATA_URL_RE = /^data:image\/(png|jpe?g|webp|gif|heic|heif|avif|bmp|tiff);base64,/i;
+export const MAX_IMAGE_MB = 10;
+export const MAX_TRANSLATE_CHARS = 5000;
+
+export function validateImageField(value: unknown, field: string, errors: string[]): void {
+  if (value === undefined || value === null || value === '') return;
+  if (typeof value !== 'string') {
+    errors.push(`${field} metin olmalıdır`);
+    return;
+  }
+  if (value.startsWith('data:')) {
+    if (!IMAGE_DATA_URL_RE.test(value)) {
+      errors.push(`${field}: yalnızca PNG, JPEG, WEBP, GIF, HEIC, AVIF, BMP veya TIFF görsel yüklenebilir`);
+      return;
+    }
+    const sizeInMB = Math.round((value.length * 3) / 4) / (1024 * 1024);
+    if (sizeInMB > MAX_IMAGE_MB) {
+      errors.push(`${field}: görsel boyutu ${MAX_IMAGE_MB}MB'dan küçük olmalıdır`);
+    }
+    return;
+  }
+  if (!/^https?:\/\//i.test(value)) {
+    errors.push(`${field}: geçersiz görsel adresi`);
+  }
+}
+
 export function validateGenerateInput(body: any): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
@@ -5,13 +33,11 @@ export function validateGenerateInput(body: any): { valid: boolean; errors: stri
     errors.push('imageUrl gereklidir');
   }
 
-  if (body.imageUrl && typeof body.imageUrl === 'string' && body.imageUrl.startsWith('data:')) {
-    const sizeInBytes = Math.round((body.imageUrl.length * 3) / 4);
-    const sizeInMB = sizeInBytes / (1024 * 1024);
-    if (sizeInMB > 10) {
-      errors.push('Görsel boyutu 10MB\'dan küçük olmalıdır');
-    }
-  }
+  // Ürün, manken ve desen görsellerinin hepsi tür + boyut kontrolünden geçer
+  // (eskiden yalnızca imageUrl'in boyutu denetleniyordu).
+  validateImageField(body.imageUrl, 'imageUrl', errors);
+  validateImageField(body.mankenImage, 'mankenImage', errors);
+  validateImageField(body.desenImage, 'desenImage', errors);
 
   const validModels = ['Nano Banana Pro', 'Nano Banana 2', 'SeedDream 4.5', 'SeedDream 5.0', 'SeedDream 5.0 Pro', 'ChatGPT Image 1.5'];
   if (body.selectedModel && !validModels.includes(body.selectedModel)) {
