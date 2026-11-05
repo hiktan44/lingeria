@@ -6,6 +6,7 @@ import { validateAuthInput } from '../utils/validation';
 import { recordLoginEvent, LoginJournalUnavailable } from '../utils/loginEvents';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import { ROUTE_RATE_LIMITS } from '../utils/rateLimit';
 
 export default async function authRouterRoutes(server: FastifyInstance) {
   const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'development-only-secret');
@@ -15,7 +16,7 @@ export default async function authRouterRoutes(server: FastifyInstance) {
     throw new Error('JWT_SECRET must be configured in production');
   }
 
-  server.post('/register', async (request, reply) => {
+  server.post('/register', { config: { rateLimit: ROUTE_RATE_LIMITS.register } }, async (request, reply) => {
     const body = request.body as any;
     const validation = validateAuthInput(body);
     if (!validation.valid) {
@@ -58,7 +59,7 @@ export default async function authRouterRoutes(server: FastifyInstance) {
     }
   });
 
-  server.post('/login', async (request, reply) => {
+  server.post('/login', { config: { rateLimit: ROUTE_RATE_LIMITS.login } }, async (request, reply) => {
     const { email, password } = request.body as any;
 
     if (!email || !password) {
@@ -98,7 +99,7 @@ export default async function authRouterRoutes(server: FastifyInstance) {
     }
   });
 
-  server.post('/forgot-password', async (request, reply) => {
+  server.post('/forgot-password', { config: { rateLimit: ROUTE_RATE_LIMITS.forgotPassword } }, async (request, reply) => {
     const { email } = request.body as { email?: string };
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return reply.code(400).send({ error: 'Geçerli bir email adresi girin' });
@@ -143,7 +144,7 @@ export default async function authRouterRoutes(server: FastifyInstance) {
     return reply.send({ message: genericMessage });
   });
 
-  server.post('/reset-password', async (request, reply) => {
+  server.post('/reset-password', { config: { rateLimit: ROUTE_RATE_LIMITS.resetPassword } }, async (request, reply) => {
     const { token, password } = request.body as { token?: string; password?: string };
     if (!token || !password || password.length < 6) {
       return reply.code(400).send({ error: 'Geçerli bağlantı ve en az 6 karakterlik şifre gereklidir' });
