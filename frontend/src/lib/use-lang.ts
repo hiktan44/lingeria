@@ -7,57 +7,66 @@ type Lang = 'tr' | 'en';
 const STORAGE_KEY = 'ui_lang';
 const EVENT_NAME = 'ui_lang_change';
 
-// IP detection with timeout and cache
-async function detectCountry(): Promise<string> {
+// IP detection with timeout and cache. Returns null when no service answers,
+// so the caller can fall back to the browser language instead of assuming TR.
+async function lookupCountry(url: string, signal: AbortSignal): Promise<string | null> {
+  try {
+    const r = await fetch(url, { signal, cache: 'no-store' });
+    if (!r.ok) return null;
+    const data = await r.json();
+    const code = String(data?.country_code || '').toUpperCase();
+    return /^[A-Z]{2}$/.test(code) ? code : null;
+  } catch {
+    return null;
+  }
+}
+
+async function detectCountry(): Promise<string | null> {
   const cacheKey = 'ip_country_cache';
   const cacheTimeKey = 'ip_country_cache_time';
-  
+
   // Check session storage cache (24h)
-  const cachedCountry = sessionStorage.getItem(cacheKey);
-  const cachedTime = sessionStorage.getItem(cacheTimeKey);
-  if (cachedCountry && cachedTime) {
-    const cacheAge = Date.now() - parseInt(cachedTime, 10);
-    if (cacheAge < 24 * 60 * 60 * 1000) { // 24 hours
+  try {
+    const cachedCountry = sessionStorage.getItem(cacheKey);
+    const cachedTime = sessionStorage.getItem(cacheTimeKey);
+    if (cachedCountry && cachedTime && Date.now() - parseInt(cachedTime, 10) < 24 * 60 * 60 * 1000) {
       return cachedCountry;
     }
-  }
-
-  const controllers: AbortController[] = [];
-  
-  try {
-    // Try ipwho.is first (more reliable)
-    const controller1 = new AbortController();
-    const controller2 = new AbortController();
-    controllers.push(controller1, controller2);
-    
-    const timeoutId = setTimeout(() => {
-      controller1.abort();
-      controller2.abort();
-    }, 2500); // 2.5s timeout
-
-    const race = Promise.race([
-      fetch('https://ipwho.is/', { signal: controller1.signal })
-        .then(r => r.json())
-        .then(data => data.country_code || 'TR'),
-      fetch('https://ipapi.co/json/', { signal: controller2.signal })
-        .then(r => r.json())
-        .then(data => data.country_code || 'TR')
-        .catch(() => 'TR')
-    ]);
-
-    const country = await race;
-    clearTimeout(timeoutId);
-    
-    // Cache the result
-    sessionStorage.setItem(cacheKey, country);
-    sessionStorage.setItem(cacheTimeKey, Date.now().toString());
-    
-    return country;
   } catch {
-    return 'TR';
-  } finally {
-    controllers.forEach(c => c.abort());
+    /* ignore */
   }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5s total
+  try {
+    const country =
+      (await lookupCountry('https://ipwho.is/', controller.signal)) ??
+      (await lookupCountry('https://ipapi.co/json/', controller.signal));
+    if (country) {
+      try {
+        sessionStorage.setItem(cacheKey, country);
+        sessionStorage.setItem(cacheTimeKey, Date.now().toString());
+      } catch {
+        /* ignore */
+      }
+    }
+    return country;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// Browser language fallback when the IP lookup is unavailable: any non-Turkish
+// browser gets English so a foreign visitor never lands on Turkish by default.
+function browserLang(): Lang {
+  try {
+    const langs = navigator.languages?.length ? navigator.languages : [navigator.language];
+    const primary = (langs.find(Boolean) || '').toLowerCase();
+    if (primary) return primary.startsWith('tr') ? 'tr' : 'en';
+  } catch {
+    /* ignore */
+  }
+  return 'tr';
 }
 
 export function useLang() {
@@ -75,14 +84,12 @@ export function useLang() {
 
     // 2. Detect from IP
     detectCountry().then(country => {
-      const detectedLang: Lang = country === 'TR' ? 'tr' : 'en';
+      const detectedLang: Lang = country === 'TR' ? 'tr' : country ? 'en' : browserLang();
       setLangState(detectedLang);
       setIsDetected(true);
     }).catch(() => {
       // 3. Fallback to navigator.language
-      const navLang = navigator.language.toLowerCase();
-      const fallbackLang: Lang = navLang.startsWith('tr') ? 'tr' : 'en';
-      setLangState(fallbackLang);
+      setLangState(browserLang());
       setIsDetected(true);
     });
   }, []);
