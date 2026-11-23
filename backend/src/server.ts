@@ -3,9 +3,10 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import dotenv from 'dotenv';
-import { dbConfig, initDatabase } from './config/database';
+import { dbConfig, initDatabase, query } from './config/database';
 import { errorHandler } from './middleware/errorHandler';
 import { clientIp } from './utils/rateLimit';
+import { initCreditRefundRecovery } from './utils/creditRefund';
 
 dotenv.config();
 
@@ -72,6 +73,7 @@ if (require.main === module) {
   const start = async () => {
     try {
       await initDatabase();
+      await initCreditRefundRecovery(query, server.log);
       const port = Number(process.env.PORT) || 4000;
       await server.listen({ port, host: '0.0.0.0' });
       server.log.info(`Server running at http://localhost:${port}`);

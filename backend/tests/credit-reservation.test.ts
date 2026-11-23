@@ -6,17 +6,27 @@ process.env.KIE_API_KEY = 'credit-test-kie-key';
 jest.mock('../src/config/database', () => ({ query: jest.fn() }));
 jest.mock('axios', () => ({ __esModule: true, default: { post: jest.fn(), get: jest.fn() } }));
 
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import fastify from 'fastify';
 import jwt from 'jsonwebtoken';
 import axios from 'axios';
 import { query } from '../src/config/database';
 import aiRouterRoutes from '../src/api/ai-router';
+import {
+  flushPendingRefunds,
+  getPendingRefundCount,
+  initCreditRefundRecovery,
+  refundReservedCredit,
+  resetPendingRefundsForTest,
+} from '../src/utils/creditRefund';
 
 const mockedQuery = query as unknown as jest.Mock;
 const mockedPost = (axios as any).post as jest.Mock;
 const mockedGet = (axios as any).get as jest.Mock;
 
-const state = { balance: 0, generations: 0, failSelect: false };
+const state = { balance: 0, generations: 0, failSelect: false, failRefundCount: 0 };
 
 function installFakeDb() {
   mockedQuery.mockImplementation(async (text: string, params: any[] = []) => {
@@ -33,6 +43,10 @@ function installFakeDb() {
       return { rows: [] };
     }
     if (text.startsWith('UPDATE users SET balance = balance + $1')) {
+      if (state.failRefundCount > 0) {
+        state.failRefundCount -= 1;
+        throw new Error('refund db down');
+      }
       state.balance += params[0];
       return { rows: [] };
     }
@@ -81,10 +95,15 @@ describe('/generate kredi ayırma', () => {
   });
   beforeEach(() => {
     jest.clearAllMocks();
+    resetPendingRefundsForTest();
     state.balance = 0;
     state.generations = 0;
     state.failSelect = false;
+    state.failRefundCount = 0;
     installFakeDb();
+  });
+  afterEach(() => {
+    resetPendingRefundsForTest();
   });
 
   test('paralel istekler bakiyeyi aşamaz', async () => {
@@ -123,6 +142,68 @@ describe('/generate kredi ayırma', () => {
     const res = await generate(app);
     expect(res.statusCode).toBe(402);
     expect(mockedPost).not.toHaveBeenCalled();
+  });
+
+  test('geçici DB hatasında iade yeniden denenip krediyi kurtarır', async () => {
+    state.balance = 10;
+    state.failRefundCount = 2; // ilk 2 iade denemesi başarısız, 3. başarılı
+    mockedPost.mockRejectedValue(new Error('kie down'));
+    const res = await generate(app);
+    expect(res.statusCode).toBe(500);
+    expect(state.balance).toBe(10);
+    expect(getPendingRefundCount()).toBe(0);
+  });
+
+  test('DB kesintisinde başarısız iade kuyruğa alınır ve DB dönünce telafi edilir', async () => {
+    state.balance = 10;
+    state.failRefundCount = 10; // istek sırasındaki tüm anlık denemeler başarısız
+    mockedPost.mockRejectedValue(new Error('kie down'));
+    const res = await generate(app);
+    expect(res.statusCode).toBe(500);
+    expect(state.balance).toBe(0);
+    expect(getPendingRefundCount()).toBe(1);
+
+    // DB geri geldiğinde bekleyen iade telafi edilir, ikinci flush çift iade yapmaz.
+    state.failRefundCount = 0;
+    const firstFlush = await flushPendingRefunds();
+    expect(firstFlush).toEqual({ recovered: 1, remaining: 0 });
+    expect(state.balance).toBe(10);
+
+    const secondFlush = await flushPendingRefunds();
+    expect(secondFlush).toEqual({ recovered: 0, remaining: 0 });
+    expect(state.balance).toBe(10);
+  });
+
+  test('kalıcı günlük dosyasına yazılan iade yeniden başlatmada kurtarılır', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lingeria-refund-test-'));
+    const journalPath = path.join(tmpDir, 'pending-refunds.json');
+    const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+    try {
+      state.balance = 0;
+      state.failRefundCount = 10;
+      const immediateOk = await refundReservedCredit({
+        userId: 'user-1',
+        cost: 12,
+        executeQuery: query,
+        logger,
+        retryDelaysMs: [0],
+        journalPath,
+      });
+      expect(immediateOk).toBe(false);
+      expect(fs.existsSync(journalPath)).toBe(true);
+
+      // Süreç yeniden başlatılmış gibi bellek içi durumu temizle.
+      resetPendingRefundsForTest();
+      state.failRefundCount = 0;
+
+      const recovered = await initCreditRefundRecovery(query, logger, { journalPath });
+      expect(recovered).toEqual({ recovered: 1, remaining: 0 });
+      expect(state.balance).toBe(12);
+      expect(fs.existsSync(journalPath)).toBe(false);
+    } finally {
+      resetPendingRefundsForTest();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 

@@ -5,6 +5,7 @@ import { query } from '../config/database';
 import { buildPrompt, SHOE_NEGATIVE_PROMPT } from './promptBuilder';
 import { validateGenerateInput, validateImageField, MAX_TRANSLATE_CHARS } from '../utils/validation';
 import { ROUTE_RATE_LIMITS } from '../utils/rateLimit';
+import { refundReservedCredit } from '../utils/creditRefund';
 
 const KIE_BASE = process.env.KIE_BASE_URL || 'https://api.kie.ai';
 const getKieKey = () => process.env.KIE_API_KEY || '';
@@ -244,11 +245,12 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
       return reply.code(402).send({ error: 'Yetersiz bakiye', cost });
     }
     const refundReserved = async () => {
-      try {
-        await query('UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2', [cost, userId]);
-      } catch (refundErr: any) {
-        server.log.error('Balance refund error: ' + (refundErr?.message || String(refundErr)));
-      }
+      await refundReservedCredit({
+        userId,
+        cost,
+        executeQuery: query,
+        logger: server.log,
+      });
     };
 
     try {
