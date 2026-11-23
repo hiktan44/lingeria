@@ -26,7 +26,7 @@ git push -u origin main
 - **New Resource** → **PostgreSQL**
 - Database: `lingeria`
 - User: `fasheone`
-- Password: `fasheone_db_password`
+- Password: `<güçlü-rastgele-parola>`
 
 #### Redis
 - **New Resource** → **Redis**
@@ -45,11 +45,11 @@ git push -u origin main
   POSTGRES_HOST=<postgres-service-url>
   POSTGRES_PORT=5432
   POSTGRES_USER=fasheone
-  POSTGRES_PASSWORD=fasheone_db_password
+  POSTGRES_PASSWORD=<güçlü-rastgele-parola>
   POSTGRES_DB=lingeria
   REDIS_URL=redis://<redis-service-url>:6379
-  JWT_SECRET=fasheone-secret-key-change-in-production
-  KIE_API_KEY=dcbf5792e5a6f789a6363f77e092daf4
+  JWT_SECRET=<openssl rand -hex 32 ile üretilmiş değer>
+  KIE_API_KEY=<kie-api-anahtarınız>
   KIE_BASE_URL=https://api.kie.ai
   ALLOWED_ORIGINS=https://<frontend-url>,http://localhost:3001
   ```

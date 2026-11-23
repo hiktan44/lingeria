@@ -17,10 +17,11 @@ async function fixture() {
     '../utils/validation': { validateAuthInput: () => ({ valid: true }) },
     '../utils/loginEvents': { LoginJournalUnavailable, recordLoginEvent: async (...row) => {if(state.failJournal)throw new LoginJournalUnavailable('retry');state.rows.push(row)} },
     crypto: require('node:crypto'), nodemailer: {},
+    '../utils/rateLimit': { ROUTE_RATE_LIMITS: {} },
   };
   vm.runInNewContext(code, { module, exports: module.exports, require: id => { assert.ok(id in imports, id); return imports[id]; }, process: { env: { JWT_SECRET: 'fixture' } } });
   const routes = {};
-  await module.exports.default({ post: (path, handler) => routes[path] = handler, get() {}, log: { error() {} } });
+  await module.exports.default({ post: (path, opts, handler) => routes[path] = handler || opts, get() {}, log: { error() {} } });
   return { state, request: async path => {
     const reply = { status: 200, code(n) { this.status = n; return this; }, send(body) { this.body = body; return this; } };
     await routes[path]({ body: { email: user.email, password: 'synthetic' } }, reply);

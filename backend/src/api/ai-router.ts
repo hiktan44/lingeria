@@ -3,7 +3,8 @@ import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/database';
 import { buildPrompt, SHOE_NEGATIVE_PROMPT } from './promptBuilder';
-import { validateGenerateInput } from '../utils/validation';
+import { validateGenerateInput, validateImageField, MAX_TRANSLATE_CHARS } from '../utils/validation';
+import { ROUTE_RATE_LIMITS } from '../utils/rateLimit';
 
 const KIE_BASE = process.env.KIE_BASE_URL || 'https://api.kie.ai';
 const getKieKey = () => process.env.KIE_API_KEY || '';
@@ -30,7 +31,9 @@ async function requireAuth(request: any, reply: any) {
   const authHeader = request.headers.authorization;
   if (!authHeader) return reply.code(401).send({ error: 'Yetkilendirme gerekli' });
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-  const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+  // auth-router ile aynı kural: üretimde JWT_SECRET zorunlu, herkesçe bilinen yedek değer yok.
+  const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'development-only-secret');
+  if (!JWT_SECRET) return reply.code(500).send({ error: 'Sunucu yapılandırma hatası' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string };
     request.user = decoded;
@@ -81,9 +84,14 @@ async function uploadToKie(base64DataUrl: string): Promise<string> {
 
 export default async function aiRouterRoutes(server: FastifyInstance) {
 
-  server.post('/translate', async (request, reply) => {
-    const { text } = request.body as any;
+  // Arayüz bu ucu yalnızca giriş yapmış kullanıcının üretim akışında çağırıyor;
+  // girişsiz erişim sunucuyu açık bir çeviri vekiline çeviriyordu.
+  server.post('/translate', { preHandler: [requireAuth] }, async (request, reply) => {
+    const { text } = (request.body || {}) as any;
     if (!text) return reply.send({ translated: '' });
+    if (typeof text !== 'string' || text.length > MAX_TRANSLATE_CHARS) {
+      return reply.code(400).send({ error: `Metin en fazla ${MAX_TRANSLATE_CHARS} karakter olabilir` });
+    }
     try {
       const res = await axios.get(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=tr&tl=en&dt=t&q=${encodeURIComponent(text)}`);
       const translated = res.data[0].map((item: any) => item[0]).join('');
@@ -94,10 +102,17 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
     }
   });
 
-  server.post('/analyze-image', async (request, reply) => {
-    const { image } = request.body as { image: string };
+  // Sunucunun ücretli Gemini anahtarıyla çalışır: yalnız giriş yapmış kullanıcı,
+  // yalnız raster görsel ve en fazla 10 MB.
+  server.post('/analyze-image', { preHandler: [requireAuth], config: { rateLimit: ROUTE_RATE_LIMITS.analyzeImage } }, async (request, reply) => {
+    const { image } = (request.body || {}) as { image: string };
     if (!image) return reply.send({ category: 'Clothing' });
-    
+    const imageErrors: string[] = [];
+    validateImageField(image, 'image', imageErrors);
+    if (imageErrors.length) {
+      return reply.code(400).send({ error: 'Validation failed', details: imageErrors });
+    }
+
     try {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
@@ -137,7 +152,7 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
   server.post('/generate', { preHandler: [requireAuth] }, async (request, reply) => {
     const { imageUrl, mankenImage, desenImage, modelKilitli, prompt, outputMode, complianceMode, selectedModel, category, vibe, shoeType, material, aspectRatio } = request.body as any;
 
-    const validation = validateGenerateInput({ imageUrl, selectedModel, aspectRatio });
+    const validation = validateGenerateInput({ imageUrl, mankenImage, desenImage, selectedModel, aspectRatio });
     if (!validation.valid) {
       return reply.code(400).send({ error: 'Validation failed', details: validation.errors });
     }
@@ -157,7 +172,9 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
         return reply.code(402).send({ error: 'Yetersiz bakiye', balance, cost });
       }
     } catch (err: any) {
+      // Bakiye doğrulanamıyorsa ücretli üretim başlatma (fail-closed).
       server.log.error('Balance check error: ' + (err?.message || String(err)));
+      return reply.code(503).send({ error: 'Bakiye doğrulanamadı, lütfen tekrar deneyin' });
     }
 
     const currentKey = getKieKey();
@@ -210,6 +227,30 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
     let uploadedManken = mankenImage;
     let uploadedDesen = desenImage;
 
+    // Krediyi Kie çağrısından ÖNCE tek bir atomik sorguyla ayır. Eskiden bakiye
+    // yalnızca okunup üretim (~120 sn) bittikten sonra düşülüyordu; paralel
+    // isteklerin hepsi kontrolü geçip bakiyeyi aşabiliyordu.
+    let reserved: { rows: any[] };
+    try {
+      reserved = await query(
+        'UPDATE users SET balance = balance - $1, updated_at = NOW() WHERE id = $2 AND balance >= $1 RETURNING balance',
+        [cost, userId]
+      );
+    } catch (err: any) {
+      server.log.error('Balance reserve error: ' + (err?.message || String(err)));
+      return reply.code(503).send({ error: 'Bakiye doğrulanamadı, lütfen tekrar deneyin' });
+    }
+    if (reserved.rows.length === 0) {
+      return reply.code(402).send({ error: 'Yetersiz bakiye', cost });
+    }
+    const refundReserved = async () => {
+      try {
+        await query('UPDATE users SET balance = balance + $1, updated_at = NOW() WHERE id = $2', [cost, userId]);
+      } catch (refundErr: any) {
+        server.log.error('Balance refund error: ' + (refundErr?.message || String(refundErr)));
+      }
+    };
+
     try {
       if (hasImageEdit) {
         if (imageUrl.startsWith('data:image')) {
@@ -239,13 +280,17 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
       );
 
       const taskId = createRes.data?.data?.taskId;
-      if (!taskId) throw new Error('taskId alınamadı: ' + JSON.stringify(createRes.data));
+      if (!taskId) {
+        // Sağlayıcı yanıtı yalnızca günlüğe; istemciye iç ayrıntı gönderilmez.
+        server.log.error({ kieResponse: createRes.data }, 'Kie createTask taskId dönmedi');
+        throw new Error('taskId alınamadı');
+      }
 
       const resultUrl = await pollTask(taskId);
       if (!resultUrl) throw new Error('Sonuç URL\'i boş döndü');
 
       try {
-        await query('UPDATE users SET balance = balance - $1, updated_at = NOW() WHERE id = $2', [cost, userId]);
+        // Kredi yukarıda ayrıldı; burada yalnızca üretim kaydı yazılır.
         await query(
           'INSERT INTO generations (user_id, result_url, model, prompt, cost) VALUES ($1, $2, $3, $4, $5)',
           [userId, resultUrl, selectedModel, generatedPrompt, cost]
@@ -257,8 +302,15 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
       return reply.send({ success: true, jobId: taskId, resultUrl, qualityScore: 95, complianceStatus: 'Catalog Ready', cost });
 
     } catch (err: any) {
-      server.log.error(err);
-      
+      // Üretim başarısız: ayrılan krediyi iade et (eski davranışta da ücret alınmıyordu).
+      await refundReserved();
+      // AxiosError nesnesinin tamamı günlüğe yazılırsa config.headers.Authorization
+      // (Kie anahtarı) da yazılıyordu; yalnızca güvenli alanlar günlüğe.
+      server.log.error(
+        { error: err?.message, status: err?.response?.status, providerResponse: err?.response?.data },
+        'AI generate error'
+      );
+
       let msg = 'AI üretimi başarısız';
       
       if (err?.response?.data) {
