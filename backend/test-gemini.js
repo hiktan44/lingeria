@@ -4,7 +4,8 @@ const KIE_KEY = process.env.KIE_API_KEY;
 async function testGemini() {
   try {
     const res = await axios.post('https://api.kie.ai/v1/chat/completions', {
-      model: 'gemini-2.5-pro',
+      model: process.env.GEMINI_MODEL || 'gemini-4-hydrogen',
+      max_tokens: 8192,
       messages: [
         {
           role: 'user',

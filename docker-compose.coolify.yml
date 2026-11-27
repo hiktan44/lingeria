@@ -58,6 +58,7 @@ services:
       - KIE_BASE_URL=https://api.kie.ai
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://lingeria.fasheone.com}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-4-hydrogen}
       - SMTP_HOST=${SMTP_HOST:?SMTP_HOST must be configured}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_SECURE=${SMTP_SECURE:-false}
