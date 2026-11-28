@@ -126,7 +126,10 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
       const mimeType = `image/${match[1]}`;
       const base64Data = match[2];
 
-      const payload = {
+      const model = process.env.GEMINI_MODEL || 'gemini-4-hydrogen';
+      const isGemini4 = /^gemini-4(?:-|$)/i.test(model);
+
+      const payload: Record<string, any> = {
         contents: [{
           parts: [
             { text: "Analyze this image and identify the primary piece of clothing on the mannequin or person. Reply with just 1-2 words in English (e.g. 'Bra', 'Panties', 'Bikini', 'Nightgown', 'Crop top', 'Swimsuit', 'Dress', 'Pajamas'). Be highly accurate and use standard fashion terminology." },
@@ -134,14 +137,26 @@ export default async function aiRouterRoutes(server: FastifyInstance) {
           ]
         }]
       };
+      if (isGemini4) {
+        payload.generationConfig = {
+          maxOutputTokens: 8192,
+          thinkingConfig: { thinkingLevel: 'LOW' },
+        };
+      }
 
       const res = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
         payload,
         { headers: { 'Content-Type': 'application/json' } }
       );
-      
-      let text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'Fashion piece';
+
+      const responseParts: Array<{ text?: string; thought?: boolean }> =
+        res.data?.candidates?.[0]?.content?.parts || [];
+      let text = responseParts
+        .filter((p) => !p.thought && typeof p.text === 'string')
+        .map((p) => p.text || '')
+        .join('')
+        .trim() || 'Fashion piece';
       text = text.replace(/[^a-zA-Z\s\-]/g, '');
       return reply.send({ category: text });
     } catch(err: any) {
